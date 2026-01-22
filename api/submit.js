@@ -1,13 +1,5 @@
 import { put } from "@vercel/blob";
 
-function generateLottery() {
-  return {
-    isWinner: Math.random() < 0.1,
-    lotteryNumber: Math.floor(100000 + Math.random() * 900000),
-    generatedAt: new Date().toISOString()
-  };
-}
-
 export const config = {
   api: {
     bodyParser: true
@@ -15,6 +7,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // CORS (MANDATORY since frontend is on GitHub Pages)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -34,53 +27,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Username required" });
     }
 
-    const username = data.username.trim().toLowerCase();
+    const filename = `keystrokes/${data.username}_${Date.now()}.json`;
 
-    const lottery = generateLottery();
-
-    await put(
-      `keystrokes/users/${username}.json`,
-      JSON.stringify(
-        {
-          ...data,
-          username,
-          lottery
-        },
-        null,
-        2
-      ),
+    const blob = await put(
+      filename,
+      JSON.stringify(data, null, 2),
       {
         access: "public",
         contentType: "application/json"
       }
     );
 
-    if (lottery.isWinner) {
-      await put(
-        `keystrokes/winners/${username}.json`,
-        JSON.stringify(
-          {
-            ...data,
-            username,
-            lottery
-          },
-          null,
-          2
-        ),
-        {
-          access: "public",
-          contentType: "application/json"
-        }
-      );
-    }
-
     return res.status(200).json({
       success: true,
-      wonLottery: lottery.isWinner
+      url: blob.url
     });
 
   } catch (err) {
-    console.error("SERVER ERROR:", err);
+    console.error(err);
     return res.status(500).json({ error: "Server error" });
   }
 }
